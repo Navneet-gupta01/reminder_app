@@ -72,6 +72,7 @@ listen(Delay) ->
 loop(S = #state{}) ->
   receive
     {Pid, MsgRef, {subscribe, Client}} ->
+      % start a monitor, and store the client info in the orddict under the key Ref. The reason for this is simple: the only other time we'll need to fetch the client ID will be if we receive a monitor's EXIT message, which will contain the reference (which will let us get rid of the orddict's entry).
       io:format("subscribe message: ~n"),
       Ref = erlang:monitor(process, Client),
       NewClients = orddict:store(Ref, Client, S#state.clients),
@@ -120,6 +121,7 @@ loop(S = #state{}) ->
           loop(S)
         end;
     shutdown ->
+      % The first case (shutdown) is pretty explicit. You get the kill message, let the process die. If you wanted to save state to disk, that could be a possible place to do it. If you wanted safer save/exit semantics, this could be done on every add, cancel or done message.Loading events from disk could then be done in the init function, spawning them as they come.
       io:format("shutdown message: ~n"),
       exit(shutdown);
     {'DOWN', Ref, process, _Pid, _Reason} ->
@@ -158,3 +160,12 @@ valid_time(_, _, _) -> false.
 
 send_to_clients(Msg, ClientDict) ->
   orddict:map(fun(_Ref, Pid) -> Pid ! Msg end, ClientDict).
+
+% make:all([load]).
+% eventserver:start().
+% eventserver:subscribe(self()).
+% eventserver:add_event("Hey there", "test", {{2019,01,14},{11,01,00}}).
+% eventserver:listen(5).
+% eventserver:cancel("Hey there").
+% eventserver:add_event("Hey there2", "test", {{2019,01,14},{11,01,20}}).
+% eventserver:listen(2000).

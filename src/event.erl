@@ -1,6 +1,6 @@
 -module(event).
 -author("Navneet Gupta").
--export([loop/1,loop2/1,start/2,start_link/2,init/3,cancel/1]).
+-export([loop/1,loop2/1,start/2,start_link/2,init/3,cancel/1, normalize/1]).
 
 -record(state, {server, name = "",to_go=0}).
 
@@ -8,9 +8,9 @@ loop(State = #state{server=Server}) ->
   receive
     {Server, Ref, cancel} ->
       Server ! {Ref, ok}
-      after State#state.to_go*1000 ->
-        Server ! {done, State#state.name}
-      end.
+    after State#state.to_go*1000 ->
+      Server ! {done, State#state.name}
+    end.
 
 %% Test Till this
 % c(event).   //compile the module
@@ -20,6 +20,13 @@ loop(State = #state{server=Server}) ->
 
 % spawn(event, loop, [#state{server=self(), name="test", to_go=365*24*60*60}]). this will thorw error since erlang only support timeout for 50days in milliseconds.
 
+% To test the cancel feature (with an ample 500 seconds to type it). I created the reference, sent the message and got a reply with the same reference so I know the ok I received was coming from this process and not any other on the system.
+
+% Pid = spawn(event, loop, [#state{server=self(), name="test", to_go=500}]).
+% ReplyRef = make_ref().
+% Pid ! {self(), ReplyRef, cancel}.
+% flush().
+
 start(EventName, Delay) ->
   spawn(?MODULE, init, [self(), EventName, Delay]).
 
@@ -28,7 +35,9 @@ start_link(EventName, Delay) ->
 
 init(Server, EventName, DateTime) ->
   loop2(#state{server=Server,name=EventName,
-      to_go=normalize(time_to_go(DateTime))}).
+      to_go=time_to_go(DateTime)}).
+
+% event:normalize(365*24*60*60).
 
 normalize(N) ->
   Limit = 49*24*60*60,
